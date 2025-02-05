@@ -2,27 +2,12 @@ import API
 import sys
 import numpy as np
 from dataclasses import dataclass
-
-#not currently using 
-# def check_boundaries(x, y, dim):
-#     #top, bottom, left, right
-#     valid = [1, 1, 1, 1]
-#     if(x == 0): #if mouse at top edge
-#         valid[0] = 0
-#         if(y == 0): # if mouse at top left corner
-#             valid[2] = 0
-#         elif(y == dim-1):#if mouse at top right corner
-#             valid[3] = 0
-#     elif(x == dim-1):
-#          valid[1] = 0
-#          if(y == 0): # if mouse at bot left corner
-#             valid[2] = 0
-#          elif(y == dim-1):#if mouse at bot right corner
-#             valid[3] = 0
-#     elif(y == 0): valid[2] = 0
-#     elif(y == dim-1): valid[3] = 0
-    
-#     return valid
+#! ALWAYS START MOUSE FACING NORTH 
+#0 = North
+#1 = East
+#2 = South
+#3 = West
+heading = 0
 
 def blank_maze(dim):
     maze_ = np.ones((dim, dim))
@@ -114,8 +99,8 @@ def set_borders(matrix, edges):
             matrix[-1] = 1
     return matrix
 
-def transform_R_to_G(heading, readings):
-
+def transform_R_to_G(readings):
+    global heading
     '''
     function takes in heading of mouse and wall readings relative to mouse.
 
@@ -123,18 +108,17 @@ def transform_R_to_G(heading, readings):
     '''
     
     # Get index of direction
-    direction = np.argmax(heading) 
     
     # Wall in global frame
     walls = readings #Readings = [L,R,F,B]
 
-    if direction == 0: # north
+    if heading == 0: # north
         return walls
     
-    elif (direction == 1): # south
+    elif (heading == 2): # south
         return [walls[1],walls[0],walls[3],walls[2]]
     
-    elif (direction == 2): # east 
+    elif (heading == 1): # east 
         return [walls[3],walls[2],walls[0],walls[1]]
     
     else: # west
@@ -166,7 +150,114 @@ class Maze:
         #right and bottom are +1
         self.hw_matrix[pos[0]+1][pos[1]] = wall_global[3]
         self.vw_matrix[pos[0]][pos[1]+1] = wall_global[1]
-            
+        
+def check_cells(pos, dim, maze):
+    '''
+    check adjacent and accessible cells
+    return array of tuples containing coordinates of accessible cells
+    '''       
+    
+    '''
+    bounds:
+    left most cells: col = 0
+    right most cells: col = dim-1
+    top most cells: row = 0
+    bottom most cells: row = dim-1
+    ''' 
+    accessible = []
+    
+    '''
+    candidates array structure:
+    each row is related to a direction. From rows 0-3--> left, top, right, bottom
+    first two elements of each row is the coordinates of the cell in that direction
+    next two elements of each row is index into vw or hw matrix that gives the wall in that direction
+    last element is numerical identifier that tells what wall each row's data is related to
+    '''
+    
+    candidates = [[pos[0], pos[1]-1, pos[0], pos[1], 3],      #left cell, left wall
+                  [pos[0]-1, pos[1], pos[0], pos[1], 0],      #top cell, top wall
+                  [pos[0], pos[1]+1, pos[0], pos[1]+1, 2],    #right cell, right wall
+                  [pos[0]+1, pos[1], pos[0]+1, pos[1], 1]]    #bottom cell, bottom wall
+    #check 4 cells around current cell
+    
+    for candidate in candidates:
+        #check if within maze
+        if(candidate[0]<0 or candidate[0]>=dim or candidate[1]<0 or candidate[1]>= dim):
+            continue #not accessible because outside of maze
+        else:
+            wall_r = candidate[2]
+            wall_c = candidate[3]
+            #within the maze. so check walls
+            if(candidate[4] == 3): #left wall
+                if(maze.vw_matrix[wall_r][wall_c]):
+                    continue                        #wall present, cant go in left direction
+            elif(candidate[4] == 0): # top wall
+                if(maze.hw_matrix[wall_r][wall_c]):
+                    continue                        #wall present, cant go in top direction
+            elif(candidate[4] == 2): # right wall
+                if(maze.vw_matrix[wall_r][wall_c]):
+                    continue                        #wall present, cant go in right direction
+            else:                   # bottom wall
+                if(maze.hw_matrix[wall_r][wall_c]):
+                    continue
+                
+        #if there is no wall in direction of adjacent cell, then it is both ADJACENT and ACCESSIBLE
+        accessible.append(candidate)
+             
+    return accessible
+      
+      
+def move(dir, pos):
+    global heading
+    #!need to also update heading
+    #dir 0(top cell), 1 (bottom cell), 2(right cell), 3 (left cell)
+    #heading  0 (north), 1 (east ), 2 (south), 3 (west)
+    pos_x = pos[1]
+    pos_y = pos[0]
+    if(dir == 3): # left
+        pos_x = pos[1]-1
+    elif(dir == 0): # top
+        pos_y = pos[0]-1
+    elif(dir == 2): # right
+        pos_x = pos[1]+1
+    else: # bottom
+        pos_y = pos[0]+1
+        
+    #!turn left
+    #facing forward (towards top) and want to go to cell to left OR
+    # facing east and want to go to cell above
+    # facing south and want to go to cell to right
+    #facing west and want to go to cell below
+    if((heading==0 and dir == 3) or (heading == 1 and dir == 0) or (heading == 2 and dir == 2) or (heading == 3 and dir == 1)):
+        API.turnLeft()
+        update_heading(-1)
+    #!turn right
+    #facing forward (towards top) and want to go to cell to right OR
+    # facing east and want to go to cell below
+    # facing south and want to go to cell to left
+    #facing west and want to go to cell above
+    elif((heading == 0 and dir == 2) or (heading == 1 and dir == 1) or (heading == 2 and dir == 0) or (heading == 3 and dir == 0)):
+        API.turnRight()
+        update_heading(1)
+    #!u turn
+    #facing forward (towards top) and want to go to cell to bottom OR
+    # facing east and want to go to cell left
+    # facing south and want to go to cell to top
+    #facing west and want to go to cell right
+    elif((heading == 0 and dir == 1) or (heading == 1 and dir == 3) or (heading == 2 and dir == 3) or (heading == 3 and dir == 2)):
+        API.turnLeft()
+        API.turnLeft()
+        update_heading(2)
+    
+    #go forward after turn
+    API.moveForward()
+    return pos_x, pos_y   
+        
+def update_heading(turn):
+    global heading
+    heading = (heading + turn) % 4  # Right turn (+1), Left turn (-1), U-turn (+2 or -2), Straight (0) 
+    
+       
 def traverse():
     log("Running...")
     API.setColor(0, 0, "G")
@@ -182,11 +273,8 @@ def traverse():
     pos = [dim-1, 0] # set initial position to bottom left
     
     #heading North South East West. 
-    #! ALWAYS START MOUSE FACING NORTH 
-    heading = [1, 0, 0, 0]
     destination_reached = (pos[0] == dim-1 and pos[1] == dim-1) or (pos[0] == dim and pos[1] == dim-1) or (pos[0] == dim and pos[1] == dim) or (pos[0] == dim-1 and pos[1] == dim)
     while(not destination_reached):
-        
         #check walls (read IR in actual implementation)
         wallLeft = API.wallLeft()
         wallRight = API.wallRight()
@@ -202,7 +290,37 @@ def traverse():
         #update horizontal and vertical walls
         maze.update_walls(pos, wall_global)
         
-            
+        #check adjacent and accessible cells
+        accessible = check_cells(pos, dim, maze)
+        num_accessible = len(accessible)
+        move_flag = 0
+        if(num_accessible == 0):
+            floodfill()         #no accessible cells, recalculate floodfill
+        else:
+            curr_cell_md = maze.md_matrix[pos[0]][pos[1]]
+            for cell in accessible:
+                candidate_md = maze.md_matrix[cell[0]][cell[1]]
+                if(candidate_md < curr_cell_md):
+                    #move to cell whose manhattan distance is less than the current manhattan distance
+                    pos_x, pos_y = move(cell[-1], heading, pos)
+                    pos = [pos_y, pos_x] # update position to new position after moving
+                    move_flag = 1 # indicate you have moved
+                    break
+            if(move_flag == 0): #you were not able to move because manhattan distances were not less
+                floodfill()     #recalculate floodfill
+        
+        #should go to next iteration of loop whether floodfill calculated or moved 
+
+    return #once mouse reaches center    
+ 
+    
+def floodfill():
+    return 
+    
+
+    
+    
+           
                 
 if __name__ == "__main__":
     main()
