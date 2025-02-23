@@ -2,6 +2,8 @@ import API
 import sys
 import numpy as np
 from dataclasses import dataclass
+from collections import deque
+
 #! ALWAYS START MOUSE FACING NORTH 
 #0 = North
 #1 = East
@@ -135,21 +137,85 @@ class Maze:
         self.md_matrix = blank_maze(dim)
         self.vw_matrix = set_borders(np.zeros((dim, dim+1)), [1, 0, 1, 0])
         self.hw_matrix = set_borders(np.zeros((dim+1, dim)), [0, 1, 0, 1])
+        
     def update_walls(self, pos, wall_global):
         '''
             function takes in wall matrices, mouse position, and wall position around current cell
             
             returns updated wall matrices
         '''
-        #pos = [row, col] (indices of manhattan distances grid)
+        # pos = [row, col] (indices of manhattan distances grid)
         # walls: LRFB
-        #top and left are same as position 
+        # top and left are same as position 
         self.hw_matrix[pos[0]][pos[1]] = wall_global[2]
         self.vw_matrix[pos[0]][pos[1]] = wall_global [0]
         
         #right and bottom are +1
         self.hw_matrix[pos[0]+1][pos[1]] = wall_global[3]
         self.vw_matrix[pos[0]][pos[1]+1] = wall_global[1]
+
+    def floodfill(self,dim):
+
+        # inputs: maze
+        # ouptuts: updated manhattan distances
+
+        # define center four target cells
+        # (ROW,COL)
+        top_left_target = (dim/2-1, dim/2-1)
+        top_right_target = (dim/2-1, dim/2)
+        bottom_left_target = (dim/2, dim/2-1)
+        bottom_right_target = (dim/2, dim/2)
+
+        #re-initialize
+        self.md_matrix = blank_maze(dim)
+    
+        q = deque()
+        q = deque([top_right_target,top_left_target,bottom_left_target,bottom_right_target])
+        
+        while(q): # while q still has values in it
+
+            # Take the leading element, determine all accessible unwritten neighbors. Add 1 to manhattan distance and append.  
+            # if cell != np.inf and if wall not blocking
+                # +1 to it and add to queue
+                
+            coord = q.popleft() 
+            # log(type(coord))
+            # log(coord)
+
+            row= int(coord[0])
+            col= int(coord[1])   
+          
+            #check left & right neighbor
+            #   horizontal wall 
+            
+            left_wall = self.hw_matrix[row][col]
+            right_wall = self.hw_matrix[row][col+1]
+            bottom_wall = self.vw_matrix[row+1][col]
+            top_wall = self.vw_matrix[row][col]
+            
+            next_dist = self.md_matrix[row][col]+1
+            #check if they are blank and accessible
+            #check left neighbor first
+            
+            if(not left_wall and self.md_matrix[row][col-1]==np.inf):
+                self.md_matrix[row][col-1] = next_dist
+                q.append((row, col-1)) # append left neighbor because it is accessible and blank
+
+            if(not right_wall and self.md_matrix[row][col+1]==np.inf):
+                self.md_matrix[row][col+1] = next_dist
+                q.append((row, col+1))
+
+            if( not bottom_wall and self.md_matrix[row+1][col]==np.inf):
+                self.md_matrix[row+1][col] = next_dist
+                q.append((row+1, col)) 
+
+            if(not top_wall and self.md_matrix[row-1][col]==np.inf):
+                self.md_matrix[row-1][col] = next_dist
+                q.append((row-1, col)) 
+
+            
+        return 
+        
         
 def check_cells(pos, dim, maze):
     '''
@@ -209,7 +275,6 @@ def check_cells(pos, dim, maze):
       
 def move(dir, pos):
     global heading
-    #!need to also update heading
     #dir 0(top cell), 1 (bottom cell), 2(right cell), 3 (left cell)
     #heading  0 (north), 1 (east ), 2 (south), 3 (west)
     pos_x = pos[1]
@@ -268,7 +333,10 @@ def traverse():
     
     #initialize maze
     maze = Maze(dim)
+    #! after initializing maze with infinities, call floodfill to get manhattan distances into maze 
+    #! assuming no walls
     
+    maze.floodfill(dim)
     #row, column
     pos = [dim-1, 0] # set initial position to bottom left
     
@@ -295,7 +363,7 @@ def traverse():
         num_accessible = len(accessible)
         move_flag = 0
         if(num_accessible == 0):
-            floodfill()         #no accessible cells, recalculate floodfill
+            maze.floodfill(dim)         #no accessible cells, recalculate floodfill
         else:
             curr_cell_md = maze.md_matrix[pos[0]][pos[1]]
             for cell in accessible:
@@ -307,15 +375,14 @@ def traverse():
                     move_flag = 1 # indicate you have moved
                     break
             if(move_flag == 0): #you were not able to move because manhattan distances were not less
-                floodfill()     #recalculate floodfill
+                maze.floodfill(dim)     #recalculate floodfill
         
         #should go to next iteration of loop whether floodfill calculated or moved 
 
     return #once mouse reaches center    
  
     
-def floodfill():
-    return 
+
     
 
     
@@ -323,5 +390,5 @@ def floodfill():
            
                 
 if __name__ == "__main__":
-    main()
+    traverse()
  
