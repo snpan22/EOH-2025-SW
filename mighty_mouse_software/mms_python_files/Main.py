@@ -156,6 +156,7 @@ class Maze:
 
     def floodfill(self,dim):
 
+
         # inputs: maze
         # ouptuts: updated manhattan distances
 
@@ -188,30 +189,41 @@ class Maze:
             #check left & right neighbor
             #   horizontal wall 
             
-            left_wall = self.hw_matrix[row][col]
-            right_wall = self.hw_matrix[row][col+1]
-            bottom_wall = self.vw_matrix[row+1][col]
-            top_wall = self.vw_matrix[row][col]
+            left_wall = self.vw_matrix[row][col]
+            right_wall = self.vw_matrix[row][col+1]
+            bottom_wall = self.hw_matrix[row+1][col]
+            top_wall = self.hw_matrix[row][col]
             
             next_dist = self.md_matrix[row][col]+1
             #check if they are blank and accessible
             #check left neighbor first
+            # log("row: ")
+            # log(row)
+            # log("col: ")
+            # log(col)
+
+            if col != 0:
+                if(not left_wall and self.md_matrix[row][col-1]==np.inf):
+                    self.md_matrix[row][col-1] = next_dist
+                    q.append((row, col-1)) # append left neighbor because it is accessible and blank
             
-            if(not left_wall and self.md_matrix[row][col-1]==np.inf):
-                self.md_matrix[row][col-1] = next_dist
-                q.append((row, col-1)) # append left neighbor because it is accessible and blank
+            if col != dim-1:
+                if(not right_wall and self.md_matrix[row][col+1]==np.inf):
+                        self.md_matrix[row][col+1] = next_dist
+                        q.append((row, col+1))
 
-            if(not right_wall and self.md_matrix[row][col+1]==np.inf):
-                self.md_matrix[row][col+1] = next_dist
-                q.append((row, col+1))
+            if row != dim-1:
+                if( not bottom_wall and self.md_matrix[row+1][col]==np.inf):
+                        self.md_matrix[row+1][col] = next_dist
+                        q.append((row+1, col)) 
 
-            if( not bottom_wall and self.md_matrix[row+1][col]==np.inf):
-                self.md_matrix[row+1][col] = next_dist
-                q.append((row+1, col)) 
+            if row != 0:
+                if(not top_wall and self.md_matrix[row-1][col]==np.inf):
+                    self.md_matrix[row-1][col] = next_dist
+                    q.append((row-1, col)) 
 
-            if(not top_wall and self.md_matrix[row-1][col]==np.inf):
-                self.md_matrix[row-1][col] = next_dist
-                q.append((row-1, col)) 
+        log(self.md_matrix)
+        log("===============================================================")
 
             
         return 
@@ -277,6 +289,10 @@ def move(dir, pos):
     global heading
     #dir 0(top cell), 1 (bottom cell), 2(right cell), 3 (left cell)
     #heading  0 (north), 1 (east ), 2 (south), 3 (west)
+    log("heading: ")
+    log(heading)
+    log("dir: ")
+    log(dir)
     pos_x = pos[1]
     pos_y = pos[0]
     if(dir == 3): # left
@@ -301,7 +317,7 @@ def move(dir, pos):
     # facing east and want to go to cell below
     # facing south and want to go to cell to left
     #facing west and want to go to cell above
-    elif((heading == 0 and dir == 2) or (heading == 1 and dir == 1) or (heading == 2 and dir == 0) or (heading == 3 and dir == 0)):
+    elif((heading == 0 and dir == 2) or (heading == 1 and dir == 1) or (heading == 2 and dir == 3) or (heading == 3 and dir == 0)):
         API.turnRight()
         update_heading(1)
     #!u turn
@@ -309,7 +325,7 @@ def move(dir, pos):
     # facing east and want to go to cell left
     # facing south and want to go to cell to top
     #facing west and want to go to cell right
-    elif((heading == 0 and dir == 1) or (heading == 1 and dir == 3) or (heading == 2 and dir == 3) or (heading == 3 and dir == 2)):
+    elif((heading == 0 and dir == 1) or (heading == 1 and dir == 3) or (heading == 2 and dir == 0) or (heading == 3 and dir == 2)):
         API.turnLeft()
         API.turnLeft()
         update_heading(2)
@@ -360,6 +376,9 @@ def traverse():
         
         #check adjacent and accessible cells
         accessible = check_cells(pos, dim, maze)
+        # log("candidates:")
+        # log(accessible)
+        # log("================================================")
         num_accessible = len(accessible)
         move_flag = 0
         if(num_accessible == 0):
@@ -368,9 +387,16 @@ def traverse():
             curr_cell_md = maze.md_matrix[pos[0]][pos[1]]
             for cell in accessible:
                 candidate_md = maze.md_matrix[cell[0]][cell[1]]
+                # log("cell: ")
+                # log(cell)
+                # log("candidate md: ")
+                # log(candidate_md)
+                
                 if(candidate_md < curr_cell_md):
                     #move to cell whose manhattan distance is less than the current manhattan distance
-                    pos_x, pos_y = move(cell[-1], heading, pos)
+                    log("cell trying to go to: ")
+                    log(cell)
+                    pos_x, pos_y = move(cell[-1], pos)
                     pos = [pos_y, pos_x] # update position to new position after moving
                     move_flag = 1 # indicate you have moved
                     break
