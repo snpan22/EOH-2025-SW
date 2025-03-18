@@ -1,67 +1,139 @@
+# import busio
+# import digitalio
+# import board
+# import adafruit_mcp3xxx.mcp3008 as MCP
+# from adafruit_mcp3xxx.analog_in import AnalogIn
+# import RPi.GPIO as GPIO
+# import time
+# import serial
+
+# teensy = serial.Serial("/dev/ttyACM0")
+# teensy.baudrate = 9600
+
+# # Setup SPI for MCP3004 ADC
+# spi = busio.SPI(clock=board.SCK, MISO=board.MISO, MOSI=board.MOSI)
+# cs = digitalio.DigitalInOut(board.D8)
+# mcp = MCP.MCP3008(spi, cs)
+# channel0 = AnalogIn(mcp, MCP.P0)  # Read from MCP3004 
+# channel1 = AnalogIn(mcp, MCP.P1)
+# channel2 = AnalogIn(mcp, MCP.P2)
+# channel3 = AnalogIn(mcp, MCP.P3)
+
+# # GPIO Setup for IR transmitter and Encoders
+# IR_EMIT0 = 22  
+# IR_EMIT1 = 23 
+# IR_EMIT2 = 24 
+# IR_EMIT3 = 25
+# MR_OUTB = 7
+# ML_OUTB = 0
+# ML_OUTA=5
+# MR_OUTA = 6
+# GPIO.setmode(GPIO.BCM)
+# GPIO.setup(IR_EMIT0, GPIO.OUT)
+# GPIO.setup(IR_EMIT1, GPIO.OUT)
+# GPIO.setup(IR_EMIT2, GPIO.OUT)
+# GPIO.setup(IR_EMIT3, GPIO.OUT)
+
+# #configure internal pull up resistor for specified pins. 
+# #pulls up pins HIGH by default, will read high unless something pulls it low
+# # rpi has floating inputs if not actively driven HIGH or LOW
+# GPIO.setup([MR_OUTA, MR_OUTB, ML_OUTA, ML_OUTB], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+# # Encoder callback functions
+# #check B when A changes to determine direction
+# #because two signals are slighly out of phase (A and B)
+
+# def read_encoder_right(channel):
+#     global pos_right
+#     if GPIO.input(MR_OUTB):
+#         pos_right += 1 # motor moving forward
+#     else:
+#         pos_right -= 1 # motor moving backwards
+
+# def read_encoder_left(channel):
+#     global pos_left
+#     if GPIO.input(ML_OUTB):
+#         pos_left += 1
+#     else:
+#         pos_left -= 1
+
+# # Attach interrupt handlers
+# #triggers when OUTA transititions from LOW to HIGH
+# GPIO.add_event_detect(MR_OUTA, GPIO.RISING, callback=read_encoder_right)
+# GPIO.add_event_detect(ML_OUTA, GPIO.RISING, callback=read_encoder_left)
 import busio
 import digitalio
 import board
 import adafruit_mcp3xxx.mcp3008 as MCP
 from adafruit_mcp3xxx.analog_in import AnalogIn
-import RPi.GPIO as GPIO
+import lgpio  # Using lgpio instead of RPi.GPIO
 import time
 import serial
 
+# Initialize global position variables
+pos_right = 0
+pos_left = 0
+
+# Initialize serial communication
 teensy = serial.Serial("/dev/ttyACM0")
 teensy.baudrate = 9600
 
-# Setup SPI for MCP3004 ADC
-spi = busio.SPI(clock=board.SCK, MISO=board.MISO, MOSI=board.MOSI)
-cs = digitalio.DigitalInOut(board.D8)
-mcp = MCP.MCP3008(spi, cs)
-channel0 = AnalogIn(mcp, MCP.P0)  # Read from MCP3004 
-channel1 = AnalogIn(mcp, MCP.P1)
-channel2 = AnalogIn(mcp, MCP.P2)
-channel3 = AnalogIn(mcp, MCP.P3)
-
-# GPIO Setup for IR transmitter and Encoders
+# GPIO Pin Definitions
 IR_EMIT0 = 22  
 IR_EMIT1 = 23 
 IR_EMIT2 = 24 
 IR_EMIT3 = 25
 MR_OUTB = 7
 ML_OUTB = 0
-ML_OUTA=5
+ML_OUTA = 5
 MR_OUTA = 6
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(IR_EMIT0, GPIO.OUT)
-GPIO.setup(IR_EMIT1, GPIO.OUT)
-GPIO.setup(IR_EMIT2, GPIO.OUT)
-GPIO.setup(IR_EMIT3, GPIO.OUT)
 
-#configure internal pull up resistor for specified pins. 
-#pulls up pins HIGH by default, will read high unless something pulls it low
-# rpi has floating inputs if not actively driven HIGH or LOW
-GPIO.setup([MR_OUTA, MR_OUTB, ML_OUTA, ML_OUTB], GPIO.IN, pull_up_down=GPIO.PUD_UP)
+# Initialize lgpio
+h = lgpio.gpiochip_open(0)
+
+# Set up GPIO outputs (IR emitters)
+lgpio.gpio_claim_output(h, IR_EMIT0)
+lgpio.gpio_claim_output(h, IR_EMIT1)
+lgpio.gpio_claim_output(h, IR_EMIT2)
+lgpio.gpio_claim_output(h, IR_EMIT3)
+
+# Set up GPIO inputs (Encoders) with pull-up resistors
+lgpio.gpio_claim_input(h, MR_OUTA, lgpio.SET_PULL_UP)
+lgpio.gpio_claim_input(h, MR_OUTB, lgpio.SET_PULL_UP)
+lgpio.gpio_claim_input(h, ML_OUTA, lgpio.SET_PULL_UP)
+lgpio.gpio_claim_input(h, ML_OUTB, lgpio.SET_PULL_UP)
 
 # Encoder callback functions
-#check B when A changes to determine direction
-#because two signals are slighly out of phase (A and B)
-
-def read_encoder_right(channel):
+def read_encoder_right(chip, gpio, level, timestamp):
     global pos_right
-    if GPIO.input(MR_OUTB):
-        pos_right += 1 # motor moving forward
+    if lgpio.gpio_read(h, MR_OUTB):
+        pos_right += 1  # Motor moving forward
     else:
-        pos_right -= 1 # motor moving backwards
+        pos_right -= 1  # Motor moving backward
 
-def read_encoder_left(channel):
+def read_encoder_left(chip, gpio, level, timestamp):
     global pos_left
-    if GPIO.input(ML_OUTB):
+    if lgpio.gpio_read(h, ML_OUTB):
         pos_left += 1
     else:
         pos_left -= 1
 
 # Attach interrupt handlers
-#triggers when OUTA transititions from LOW to HIGH
-GPIO.add_event_detect(MR_OUTA, GPIO.RISING, callback=read_encoder_right)
-GPIO.add_event_detect(ML_OUTA, GPIO.RISING, callback=read_encoder_left)
+lgpio.gpio_claim_alert(h, MR_OUTA, lgpio.RISING_EDGE)
+lgpio.gpio_claim_alert(h, ML_OUTA, lgpio.RISING_EDGE)
+lgpio.callback(h, MR_OUTA, lgpio.RISING_EDGE, read_encoder_right)
+lgpio.callback(h, ML_OUTA, lgpio.RISING_EDGE, read_encoder_left)
 
+# Setup SPI for MCP3004 ADC
+spi = busio.SPI(clock=board.SCK, MISO=board.MISO, MOSI=board.MOSI)
+cs = digitalio.DigitalInOut(board.D8)
+mcp = MCP.MCP3008(spi, cs)
+
+# Read from MCP3004
+channel0 = AnalogIn(mcp, MCP.P0)  
+channel1 = AnalogIn(mcp, MCP.P1)
+channel2 = AnalogIn(mcp, MCP.P2)
+channel3 = AnalogIn(mcp, MCP.P3)
 
 pos_left, pos_right = 0, 0  # Encoder positions
 prev_t = time.time() #
