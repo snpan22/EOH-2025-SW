@@ -83,8 +83,8 @@ IR_EMIT0 = 22
 IR_EMIT1 = 23 
 IR_EMIT2 = 24 
 IR_EMIT3 = 25
-MR_OUTB = 7
-ML_OUTB = 0
+MR_OUTB = 16
+ML_OUTB = 12
 ML_OUTA = 5
 MR_OUTA = 6
 
@@ -119,8 +119,8 @@ def read_encoder_left(chip, gpio, level, timestamp):
         pos_left -= 1
 
 # Attach interrupt handlers
-lgpio.gpio_claim_alert(h, MR_OUTA, lgpio.RISING_EDGE)
-lgpio.gpio_claim_alert(h, ML_OUTA, lgpio.RISING_EDGE)
+lgpio.gpio_claim_input(h, MR_OUTA, lgpio.RISING_EDGE)
+lgpio.gpio_claim_input(h, ML_OUTA, lgpio.RISING_EDGE)
 lgpio.callback(h, MR_OUTA, lgpio.RISING_EDGE, read_encoder_right)
 lgpio.callback(h, ML_OUTA, lgpio.RISING_EDGE, read_encoder_left)
 
@@ -174,6 +174,7 @@ try:
             dedt = (e - eprev)/dt
             eintegral +=e*dt
             u = kp*e + kd*dedt + ki*eintegral
+            return u, e, eintegral
             
             
         u_left,eprev_left, eintegral_left = PID(target_left, pos_left, eprev_left, eintegral_left)
@@ -198,7 +199,9 @@ try:
         time.sleep(0.01)  # Small delay
 except KeyboardInterrupt:
     print("Stopping...")
-    GPIO.cleanup()
+    lgpio.gpiochip_close(h)
+
+    # GPIO.cleanup()
     
     
     
