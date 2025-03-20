@@ -36,85 +36,41 @@ void loop()
   // put your main code here, to run repeatedly:
 
   // analog  values on teensy range from 0 to 1023
-#ifdef TEST_MOTORS
-  // if(Serial.available()){
-  //   char val[1];
-  //   Serial.readBytes(val, 1);
+  if (Serial.available()) {
+    String command = Serial.readStringUntil('\n');
+    int dir_left, pwm_left, dir_right, pwm_right;
+    sscanf(command.c_str(), "%d,%d,%d,%d", &dir_left, &pwm_left, &dir_right, &pwm_right);
+    if(dir_left ==0){
+      analogWrite(ml_en, 0);
+      digitalWrite(ml_in_1, 0); 
+      digitalWrite(ml_in_2, 0);
+    } 
+    if(dir_right == 0){
+      analogWrite(mr_en, 0);
+      digitalWrite(mr_in_1, 0); 
+      digitalWrite(mr_in_2, 0);  
+    }
+    if(dir_left !=0 && dir_right != 0){
 
-  //   if(val[0] == 1){
-  //     digitalWrite(mr_in_1, LOW);
-  //     digitalWrite(mr_in_2, HIGH);
-  //     analogWrite(mr_en, 255);
-  //     delay(2000); // Run for 2 seconds
-  //     digitalWrite(mr_in_1, HIGH);
-  //     digitalWrite(mr_in_2, LOW);
-  //     analogWrite(mr_en, 255);
-  //     delay(2000); // Run for 2 seconds
-  //   }
-  //   else if(val[0] == 2){
-  //     digitalWrite(ml_in_1, LOW);
-  //     digitalWrite(ml_in_2, HIGH);
-  //     analogWrite(ml_en, 255);
-  //     delay(2000); // Run for 2 seconds
-  //     digitalWrite(ml_in_1, HIGH);
-  //     digitalWrite(ml_in_2, LOW);
-  //     analogWrite(ml_en, 255);
-  //     delay(2000); // Run for 2 seconds
-  //   }
-
-  // }
-  digitalWrite(mr_in_1, LOW);
-  digitalWrite(mr_in_2, HIGH);
-  analogWrite(mr_en, 255);
-  delay(2000); // Run for 2 seconds
-  digitalWrite(mr_in_1, HIGH);
-  digitalWrite(mr_in_2, LOW);
-  analogWrite(mr_en, 255);
-  delay(2000); // Run for 2 seconds
-
-  digitalWrite(ml_in_1, LOW);
-  digitalWrite(ml_in_2, HIGH);
-  analogWrite(ml_en, 255);
-  delay(2000); // Run for 2 seconds
-  digitalWrite(ml_in_1, HIGH);
-  digitalWrite(ml_in_2, LOW);
-  analogWrite(ml_en, 255);
-  delay(2000); // Run for 2 seconds
-
-#endif
-
-digitalWrite(LED_BUILTIN, HIGH);
-delay(500);
-digitalWrite(LED_BUILTIN, LOW);
-delay(500);
-if (Serial.available()) {
-  char val = Serial.read();  // Read the incoming byte
-  
-  if (val == 1) {
-    // Toggle the built-in LED on the Teensy
-    // digitalWrite(13, HIGH);  // Turn on the LED
-    // delay(500);              // Keep it on for 500ms
-    // digitalWrite(13, LOW);   // Turn off the LED
-    // delay(500);              // Keep it off for 500ms
-    digitalWrite(ml_in_1, LOW);
-    digitalWrite(ml_in_2, HIGH);
-    analogWrite(ml_en, 200);
-    // delay(2000); // Run for 2 seconds
-
-    // right is good i think. left is sus
-    digitalWrite(mr_in_2, LOW);
-    digitalWrite(mr_in_1, HIGH);
-    analogWrite(mr_en,200);
-    delay(200); // Run for 2 seconds
-    digitalWrite(mr_in_2, LOW);
-    digitalWrite(mr_in_1, LOW);
-    digitalWrite(ml_in_1, LOW);
-    digitalWrite(ml_in_2, LOW);
-
-    // analogWrite(mr_en,0);
-    // analogWrite(ml_en, 0);
-    // Send confirmation back to Raspberry Pi
-    // Serial.write(1);         // Send '1' to indicate the LED was toggled
+      //! left motor
+      //! in1 LOW, in2 HIGH--> Forward
+      //! in1 HIGH, in2 LOW-->Backwards
+      analogWrite(ml_en, pwm_left);
+      digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+      digitalWrite(ml_in_2, dir_left == 1); // 
+      // analogWrite(ml_en, 100);
+      // digitalWrite(ml_in_1, LOW);
+      // digitalWrite(ml_in_2, HIGH);
+      //! RIGHT motor
+      //! in1 HIGH, in2 LOW--> Forward
+      //! in1 LOW, in2 HIGH-->Backwards
+      analogWrite(mr_en, pwm_right);
+      digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+      digitalWrite(mr_in_2, dir_right == -1); // 
+      // analogWrite(mr_en, 100);
+      // digitalWrite(mr_in_1, HIGH);
+      // digitalWrite(mr_in_2, LOW);
+    }
   }
 }
 
@@ -122,4 +78,5 @@ if (Serial.available()) {
   // delay(500);
   // digitalWrite(LED_BUILTIN, LOW);
   // delay(500);
-}
+
+
