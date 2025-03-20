@@ -8,7 +8,9 @@ import RPi.GPIO as GPIO
 from gpiozero import Button
 import time
 import serial
-
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation 
+from collections import deque
 # Initialize global position variables
 pos_right = 0
 pos_left = 0
@@ -127,6 +129,8 @@ prev_t = time.time() #
 eprev_left, eprev_right = 0, 0
 eintegral_left, eintegral_right = 0, 0
 
+
+
 # Motion states
 FORWARD = 0
 TURN_180 = 1
@@ -134,15 +138,37 @@ STOP = 2
 state = FORWARD
 
 # PID constants
-kp = 1
-kd = 0.025
+kp = 2
+kd = 0.5
 ki = 0
 
 # Target positions for different motions
-target_forward = 1000  # Adjust for desired travel distance
+target_forward = 50  # Adjust for desired travel distance
 target_turn = 50  # Adjust for a 180-degree turn
 
 #GPIO.setup(3, GPIO.OUT)
+MAX_POINTS = 100
+times = deque(maxlen=MAX_POINTS)
+setpoints = deque(maxlen=MAX_POINTS)
+values_l = deque(maxlen=MAX_POINTS)
+errors_l = deque(maxlen=MAX_POINTS)
+outputs_l = deque(maxlen=MAX_POINTS)
+values_r = deque(maxlen=MAX_POINTS)
+errors_r = deque(maxlen=MAX_POINTS)
+outputs_r = deque(maxlen=MAX_POINTS)
+plt.ion()  # Turn on interactive mode
+fig, ax = plt.subplots()
+ax.set_ylim(-200, 200)  # Adjust based on your encoder range
+ax.set_xlim(0, MAX_POINTS)
+(setpoint_line,) = ax.plot([], [], label="Setpoint", color="blue")
+(value_line_l,) = ax.plot([], [], label="Left Encoder Pos", color="green")
+(error_line_l,) = ax.plot([], [], label="Left Error", color="red", linestyle="dashed")
+(output_line_l,) = ax.plot([], [], label="Left Output", color="purple")
+(value_line_r,) = ax.plot([], [], label="Right Encoder Pos", color="orange")
+(error_line_r,) = ax.plot([], [], label="Right Error", color="red", linestyle="dotted")
+(output_line_r,) = ax.plot([], [], label="Right Output", color="brown")
+
+ax.legend()
 
 try:
     while True:
@@ -182,7 +208,7 @@ try:
         u_right,eprev_right, eintegral_right = PID(target_right, pos_right, eprev_right, eintegral_right)
 
         def mpc(u):
-            pwr = min(abs(u), 150) #limit power to 255
+            pwr = min(abs(u), 200) #limit power to 255
             if(pwr <=10):
                 dir_ = 0
             else:
@@ -203,22 +229,49 @@ try:
         command = f"{dir_left},{pwm_left},{dir_right},{pwm_right}\n"
         teensy.write(command.encode())
         
-        if abs(target_left - pos_left) < 10 and abs(target_right - pos_right) < 10 and state != STOP:
+        # ~ if abs(target_left - pos_left) < 10 and abs(target_right - pos_right) < 10 and state != STOP:
+        if abs(pos_left)>=target_left and abs(pos_right)>= target_right and state != STOP:
+
             state = STOP if state == FORWARD else FORWARD
             pos_left, pos_right = 0, 0  # Reset encoder positions
 
         # Print debug info
         print(f"Target: {target_left}, {target_right} | Pos: {pos_left}, {pos_right} | PWM: {pwm_left}, {pwm_right}")
+        setpoints.append(target_left)
+        values_l.append(pos_left)
+        errors_l.append(eprev_left)
+        outputs_l.append(u_left)
+        values_r.append(pos_right)
+        errors_r.append(eprev_right)
+        outputs_r.append(u_right)
+
+        # Update plot data
+        setpoint_line.set_data(range(len(setpoints)), setpoints)
+        value_line_l.set_data(range(len(values_l)), values_l)
+        error_line_l.set_data(range(len(errors_l)), errors_l)
+        output_line_l.set_data(range(len(outputs_l)), outputs_l)
+        value_line_r.set_data(range(len(values_r)), values_r)
+        error_line_r.set_data(range(len(errors_r)), errors_r)
+        output_line_r.set_data(range(len(outputs_r)), outputs_r)
+
+        ax.relim()  # Recalculate limits
+        ax.autoscale_view(True, True, True)  # Autoscale plot
+        plt.draw()
+        plt.pause(0.05)  # Pause to allow updates
         time.sleep(0.01)  # Small delay
 except KeyboardInterrupt:
-    MR_OUTA_btn.close()
-    MR_OUTB_btn.close()
-    ML_OUTA_btn.close()
-    ML_OUTB_btn.close()
+    
     
     # ~ GPIO.cleanup()
     print("Stopping...")
     # ~ lgpio.gpiochip_close(h)
+finally:
+    MR_OUTA_btn.close()
+    MR_OUTB_btn.close()
+    ML_OUTA_btn.close()
+    ML_OUTB_btn.close()
+    plt.ioff()  # Turn off interactive mode
+    plt.show()  # Show final graph
 
     
     
