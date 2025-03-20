@@ -15,6 +15,7 @@ from collections import deque
 pos_right = 0
 pos_left = 0
 
+
 # Initialize serial communication
 teensy = serial.Serial("/dev/ttyACM0")
 teensy.baudrate = 9600
@@ -98,7 +99,7 @@ def read_encoder_right():
 
 def read_encoder_left():
     global pos_left
-    if ML_OUTA_btn.is_pressed:  # Read ML_OUTB state
+    if ML_OUTA_btn.is_pressed:  # Read ML_OUTA state
         pos_left -= 1  # Backwards
     else:
         pos_left += 1  # Forwards
@@ -128,6 +129,7 @@ u_left, u_right = 0, 0
 prev_t = time.time() #
 eprev_left, eprev_right = 0, 0
 eintegral_left, eintegral_right = 0, 0
+e_encoders_prev, e_encoders_integral = 0, 0
 
 
 
@@ -138,12 +140,20 @@ STOP = 2
 state = FORWARD
 
 # PID constants
-kp = 2
-kd = 0.5
-ki = 0
+kpl = 0.2
+kdl = 0.005
+kil = 0.05
+
+kpr = .02
+kdr = 0.005
+kir = 0
+
+kp_encoders = 0.2
+kd_encoders = 0.5
+ki_encoders = 0
 
 # Target positions for different motions
-target_forward = 50  # Adjust for desired travel distance
+target_forward = 1000  # Adjust for desired travel distance
 target_turn = 50  # Adjust for a 180-degree turn
 
 #GPIO.setup(3, GPIO.OUT)
@@ -158,7 +168,7 @@ errors_r = deque(maxlen=MAX_POINTS)
 outputs_r = deque(maxlen=MAX_POINTS)
 plt.ion()  # Turn on interactive mode
 fig, ax = plt.subplots()
-ax.set_ylim(-200, 200)  # Adjust based on your encoder range
+ax.set_ylim(-target_forward-100, target_forward+100)  # Adjust based on your encoder range
 ax.set_xlim(0, MAX_POINTS)
 (setpoint_line,) = ax.plot([], [], label="Setpoint", color="blue")
 (value_line_l,) = ax.plot([], [], label="Left Encoder Pos", color="green")
@@ -195,20 +205,48 @@ try:
             target_left = 0;
             target_right = 0;
             
-        def PID(target, pos, eprev, eintegral):
+        def PID(target, pos, eprev, eintegral, kp, ki, kd):
             e = pos - target #!potentially do target - pos???
             dedt = (e - eprev)/dt
             eintegral +=e*dt
             u = kp*e + kd*dedt + ki*eintegral
-            print(u)
+            # ~ print(u)
+            print('ki:',ki)
             return u, e, eintegral
             
+        def encoders_PID(pos_left,pos_right,u_left,u_right,e_encoders_prev,e_encoders_integral):
+            #Take a difference between the left and right positions
             
-        u_left,eprev_left, eintegral_left = PID(target_left, pos_left, eprev_left, eintegral_left)
-        u_right,eprev_right, eintegral_right = PID(target_right, pos_right, eprev_right, eintegral_right)
+            diff = pos_left - pos_right
+            e_encoders = abs(diff)
+            de_encoders_dt = (e_encoders - e_encoders_prev)/dt
+            e_encoders_integral +=e_encoders_integral*dt
+            u = kp_encoders*e_encoders + kd_encoders*de_encoders_dt + ki_encoders*e_encoders_integral
+            print('e_encoders:', e_encoders)
+            print('de_encoders_dt:', de_encoders_dt)
+            print('e_encoders_integral:',e_encoders_integral)
+            
+            if diff > 15:
+                print('u:',u)
+                print('u_right (before sum):',u_right)
+                u_right += u
+                print('u_right (after sum):',u_right)
+
+            if diff < -15:
+                print('u:',u)
+                print('u_left (before sum):',u_left)
+                u_left += u
+                print('u_left (after sum):',u_left)
+
+            return u_left, u_right, e_encoders, e_encoders_integral
+            
+        u_left,eprev_left, eintegral_left = PID(target_left, pos_left, eprev_left, eintegral_left,kpl,kil,kdl)
+        u_right,eprev_right, eintegral_right = PID(target_right, pos_right, eprev_right, eintegral_right,kpr,kil,kdl)
+        
+        # ~ u_left, u_right, e_encoders_prev, e_encoders_integral = encoders_PID(pos_left,pos_right,u_left,u_right,e_encoders_prev,e_encoders_integral)
 
         def mpc(u):
-            pwr = min(abs(u), 200) #limit power to 255
+            pwr = min(abs(u), 255) #limit power to 255
             if(pwr <=10):
                 dir_ = 0
             else:
