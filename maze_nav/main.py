@@ -192,8 +192,8 @@ try:
             target_left = target_turn
             target_right = -target_turn
         else:
-            target_left = 0;
-            target_right = 0;
+            target_left = 0
+            target_right = 0
             
         def PID(target, pos, eprev, eintegral):
             e = pos - target #!potentially do target - pos???
