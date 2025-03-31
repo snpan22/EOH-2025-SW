@@ -9,11 +9,17 @@ class PIDController {
         }
     
         float compute(float setpoint, float measuredValue) {
+            unsigned long currentTime = millis();  
+            float deltaTime = (currentTime - lastTime) / 1000.0;  // Convert ms to seconds
+            
+        
             float error = setpoint - measuredValue;
-            integral += error;
-            float derivative = error - previousError;
+            integral += error * deltaTime;  // Integral considers time step
+            float derivative = (error - previousError) / deltaTime;  // Derivative considers rate of change
+        
             previousError = error;
-    
+            lastTime = currentTime;  // Update timestamp
+        
             return (Kp * error) + (Ki * integral) + (Kd * derivative);
         }
     
@@ -31,5 +37,6 @@ class PIDController {
     private:
         float Kp, Ki, Kd;
         float previousError, integral;
+        float lastTime;
     };
   

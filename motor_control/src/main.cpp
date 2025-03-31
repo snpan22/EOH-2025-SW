@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include <motor_drive.h>
 #include <PIDController.h>
-
+#include <algorithm>
 // const byte ledPin = 13;
 // const byte interruptPin = 2;
 // volatile byte state = LOW;
@@ -33,21 +33,21 @@ volatile int encoderPosLeft = 0;  // Track the encoder position
 void encoderISR_right();
 void encoderISR_left();
 
-float kpl = 0.5;
-float kil = 1.;
-float kdl = 0.01;
+float kpl = 0.1;
+float kil = 0.;
+float kdl = 0.0;
 float ul = 0.;
 
 PIDController controller_left(kpl,kil,kdl);
 
-float kpr = 0.5;
-float kir = 1.;
-float kdr = 0.01;
+float kpr = 0.1;
+float kir = 0.;
+float kdr = 0.0;
 float ur = 0.;
 
 PIDController controller_right(kpr,kir,kdr);
 
-int setpoint = 100;
+int setpoint = 750;
 
 void setup()
 {
@@ -70,6 +70,7 @@ void setup()
   pinMode(LED_BUILTIN, OUTPUT);
   //faster baud rate :115200 
   Serial.begin(115200);
+  delay(5000);
 }
 void loop()
 {
@@ -78,20 +79,24 @@ void loop()
     int dir_right = 1;
     int dir_left = 1;
 
-
+    if (encoderPosLeft != 0 && encoderPosRight != 0){
+      controller_left.setTunings(0.14,0.0020,0.001);
+      controller_right.setTunings(kpr, 0.0020, 0.001);
+    } 
+    else{
+      controller_left.setTunings(kpl,0.0,0.0);
+      controller_right.setTunings(kpr, 0.0, 0.0);
+    }
     ul = controller_left.compute(setpoint,encoderPosLeft);
     ur = controller_right.compute(setpoint,encoderPosRight);
-
-    
-
-
-
-    analogWrite(mr_en, ur);
+    int pwr_r =  std::min(static_cast<int>(abs(ur)), 150);
+    int pwr_l =  std::min(static_cast<int>(abs(ul)), 250);
+    analogWrite(mr_en, pwr_r);
 
     digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
     digitalWrite(mr_in_2, dir_right == -1); //
 
-    analogWrite(ml_en, ul);
+    analogWrite(ml_en, pwr_l);
 
     digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
     digitalWrite(ml_in_2, dir_left == 1); // 
@@ -100,12 +105,19 @@ void loop()
 
     Serial.print("Setpoint: ");
     Serial.print(setpoint);
+    Serial.print("| ul: ");
+    Serial.print(ul);
+    Serial.print(" | ur: ");
+    Serial.print(ur);
+    Serial.print("| pwr_l: ");
+    Serial.print(pwr_l);
+    Serial.print(" | pwr_r: ");
+    Serial.print(pwr_r);
     Serial.print("Right position: "); 
     Serial.print(encoderPosRight);  // Print encoder position for debugging
     Serial.print("  ");
     Serial.print("Left position: ");
-    Serial.print(encoderPosLeft);  // Print encoder position for debugging
-    Serial.println("  Next Line");
+    Serial.println(encoderPosLeft);  // Print encoder position for debugging
 
     // Serial.println(encoderPos);  // Print encoder position for debugging
 
