@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <motor_drive.h>
+#include <PIDController.h>
 
 // const byte ledPin = 13;
 // const byte interruptPin = 2;
@@ -31,6 +32,23 @@ volatile int encoderPosRight = 0;  // Track the encoder position
 volatile int encoderPosLeft = 0;  // Track the encoder position
 void encoderISR_right();
 void encoderISR_left();
+
+float kpl = 0.5;
+float kil = 1.;
+float kdl = 0.01;
+float ul = 0.;
+
+PIDController controller_left(kpl,kil,kdl);
+
+float kpr = 0.5;
+float kir = 1.;
+float kdr = 0.01;
+float ur = 0.;
+
+PIDController controller_right(kpr,kir,kdr);
+
+int setpoint = 100;
+
 void setup()
 {
   // motor control pins
@@ -49,8 +67,6 @@ void setup()
   pinMode(ml_outb, INPUT);
   attachInterrupt(digitalPinToInterrupt(mr_outa), encoderISR_right, CHANGE);  // Trigger on both rising and falling edges
   attachInterrupt(digitalPinToInterrupt(ml_outa), encoderISR_left, CHANGE);  // Trigger on both rising and falling edges
-
-
   pinMode(LED_BUILTIN, OUTPUT);
   //faster baud rate :115200 
   Serial.begin(115200);
@@ -61,17 +77,35 @@ void loop()
 
     int dir_right = 1;
     int dir_left = 1;
-    analogWrite(mr_en, 150);
+
+
+    ul = controller_left.compute(setpoint,encoderPosLeft);
+    ur = controller_right.compute(setpoint,encoderPosRight);
+
+    
+
+
+
+    analogWrite(mr_en, ur);
+
     digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
     digitalWrite(mr_in_2, dir_right == -1); //
-    analogWrite(ml_en, 150);
+
+    analogWrite(ml_en, ul);
+
     digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
     digitalWrite(ml_in_2, dir_left == 1); // 
+
+
+
+    Serial.print("Setpoint: ");
+    Serial.print(setpoint);
     Serial.print("Right position: "); 
     Serial.print(encoderPosRight);  // Print encoder position for debugging
     Serial.print("  ");
     Serial.print("Left position: ");
-    Serial.println(encoderPosLeft);  // Print encoder position for debugging
+    Serial.print(encoderPosLeft);  // Print encoder position for debugging
+    Serial.println("  Next Line");
 
     // Serial.println(encoderPos);  // Print encoder position for debugging
 
@@ -143,11 +177,10 @@ void encoderISR_left() {
 }
 
 
-
-
 //   // digitalWrite(LED_BUILTIN, HIGH); // Turn LED on
 //   // delay(500);
 //   // digitalWrite(LED_BUILTIN, LOW);
 //   // delay(500);
+
 
 
