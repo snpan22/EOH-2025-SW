@@ -3,6 +3,14 @@
 #include <motor_drive.h>
 #include <PIDController.h>
 #include <algorithm>
+
+// #define STRAIGHT
+// #define TURN_LEFT
+// #define TURN_RIGHT
+// #define TURN_AROUND
+
+#define ALL_TURNS
+
 // const byte ledPin = 13;
 // const byte interruptPin = 2;
 // volatile byte state = LOW;
@@ -47,7 +55,14 @@ float ur = 0.;
 
 PIDController controller_right(kpr,kir,kdr);
 
-int setpoint = 750;
+int setpoint = 315;
+int setpointIndex = 0;
+int numSetpoints = 2;
+
+int turncount_left = 0;
+int turncount_right = 0;
+int turncount_around = 0;
+
 
 void setup()
 {
@@ -74,23 +89,37 @@ void setup()
 }
 void loop()
 {
+  int dir_right = 1;
+  int dir_left = 1;
   // put your main code here, to run repeatedly:
-
-    int dir_right = 1;
-    int dir_left = 1;
+#ifdef STRAIGHT
+  
 
     if (encoderPosLeft != 0 && encoderPosRight != 0){
-      controller_left.setTunings(0.14,0.0020,0.001);
-      controller_right.setTunings(kpr, 0.0020, 0.001);
+      
+      // left: .13,.00425, .001
+      // right: .1, .002, .001
+
+      //for 750:
+      //left: 0.15,0.01,0.001
+      //right: 0.15, 0.0040, 0.001
+
+
+      //for 500:
+      // left: 0.275,0.01,0.001
+      // right: 0.23, 0.0040, 0.001)
+
+      controller_left.setTunings(0.540,0.01,0.001);
+      controller_right.setTunings(0.43, 0.0040, 0.001);
     } 
     else{
-      controller_left.setTunings(kpl,0.0,0.0);
-      controller_right.setTunings(kpr, 0.0, 0.0);
+      controller_left.setTunings(.35,0.0,0.0);
+      controller_right.setTunings(.52, 0.0, 0.0);
     }
     ul = controller_left.compute(setpoint,encoderPosLeft);
     ur = controller_right.compute(setpoint,encoderPosRight);
     int pwr_r =  std::min(static_cast<int>(abs(ur)), 150);
-    int pwr_l =  std::min(static_cast<int>(abs(ul)), 250);
+    int pwr_l =  std::min(static_cast<int>(abs(ul)), 255);
     analogWrite(mr_en, pwr_r);
 
     digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
@@ -121,8 +150,129 @@ void loop()
 
     // Serial.println(encoderPos);  // Print encoder position for debugging
 
-    delay(100);
-  // analog  values on teensy range from 0 to 1023
+
+    if (((encoderPosLeft - setpoint > 10) || (encoderPosRight - setpoint > 0)) && (setpointIndex < numSetpoints)) {
+      Serial.print("Setpoint reached! Moving to setpoint index:");
+      Serial.println(setpointIndex);
+      encoderPosLeft = 0; // Reset encoder positions
+      encoderPosRight = 0;
+
+      setpointIndex++; // Move to next setpoint
+
+    }
+  #endif
+  // digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+  // digitalWrite(mr_in_2, dir_right == -1); //
+
+  // analogWrite(ml_en, pwr_l);
+
+  // digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+  // digitalWrite(ml_in_2, dir_left == 1); // 
+  #ifdef TURN_RIGHT
+  if(turncount_right < 10){
+    analogWrite(mr_en, 255);
+
+    digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(mr_in_2, dir_right == -1); //
+    analogWrite(ml_en, 210);
+
+    digitalWrite(ml_in_1, dir_left == 1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(ml_in_2, dir_left == -1); // 
+    turncount_right++;
+  }
+  else{
+    digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(mr_in_2, LOW); //
+
+    digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(ml_in_2, LOW); //
+    // turncount_right = 0;
+  }
+  #endif
+
+  #ifdef TURN_LEFT
+  if(turncount_left < 10){
+    analogWrite(mr_en, 195);
+
+    digitalWrite(mr_in_1, dir_right == -1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(mr_in_2, dir_right == 1); //
+
+    analogWrite(ml_en, 255);
+
+    digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(ml_in_2, dir_left == 1); // 
+    turncount_left++;
+  }
+  else{
+    digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(mr_in_2, LOW); //
+
+    digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(ml_in_2, LOW); //
+  }
+  #endif
+
+
+  #ifdef TURN_AROUND
+  if(turncount_around < 15){
+    analogWrite(mr_en, 255);
+
+    digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(mr_in_2, dir_right == -1); //
+
+    analogWrite(ml_en, 255);
+
+    digitalWrite(ml_in_1, dir_left == 1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(ml_in_2, dir_left == -1); // 
+    turncount_around++;
+  }
+  else{
+    digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(mr_in_2, LOW); //
+
+    digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(ml_in_2, LOW); //
+  }
+  #endif
+    delay(10);
+  
+}
+void encoderISR_right() {
+
+  // This function will be called every time the encoder pin A changes state
+  int stateA = digitalRead(mr_outa);
+  int stateB = digitalRead(mr_outb);
+  
+  // Update the encoder position based on the direction of rotation
+  if (stateA == stateB) {
+      encoderPosRight++;
+  } else {
+      encoderPosRight--;
+  }
+}
+
+void encoderISR_left() {
+
+  // This function will be called every time the encoder pin A changes state
+  int stateA = digitalRead(ml_outa);
+  int stateB = digitalRead(ml_outb);
+  
+  // Update the encoder position based on the direction of rotation
+  if (stateA == stateB) {
+      encoderPosLeft--;
+  } else {
+      encoderPosLeft++;
+  }
+}
+
+
+//   // digitalWrite(LED_BUILTIN, HIGH); // Turn LED on
+//   // delay(500);
+//   // digitalWrite(LED_BUILTIN, LOW);
+//   // delay(500);
+
+
+// analog  values on teensy range from 0 to 1023
   // if (Serial.available()) {
   //   String command = Serial.readStringUntil('\n');
   //   int dir_left, pwm_left, dir_right, pwm_right;
@@ -159,40 +309,5 @@ void loop()
   //     // digitalWrite(mr_in_2, LOW);
   //   }
   // }
-}
-void encoderISR_right() {
-
-  // This function will be called every time the encoder pin A changes state
-  int stateA = digitalRead(mr_outa);
-  int stateB = digitalRead(mr_outb);
-  
-  // Update the encoder position based on the direction of rotation
-  if (stateA == stateB) {
-      encoderPosRight++;
-  } else {
-      encoderPosRight--;
-  }
-}
-
-void encoderISR_left() {
-
-  // This function will be called every time the encoder pin A changes state
-  int stateA = digitalRead(ml_outa);
-  int stateB = digitalRead(ml_outb);
-  
-  // Update the encoder position based on the direction of rotation
-  if (stateA == stateB) {
-      encoderPosLeft--;
-  } else {
-      encoderPosLeft++;
-  }
-}
-
-
-//   // digitalWrite(LED_BUILTIN, HIGH); // Turn LED on
-//   // delay(500);
-//   // digitalWrite(LED_BUILTIN, LOW);
-//   // delay(500);
-
 
 
