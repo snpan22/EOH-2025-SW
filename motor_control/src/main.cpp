@@ -4,15 +4,14 @@
 #include <PIDController.h>
 #include <algorithm>
 
-#define STRAIGHT
+// #define STRAIGHT
 // #define TURN_LEFT
 // #define TURN_RIGHT
 // #define TURN_AROUND
 
-// #define PROGRAM
+#define PROGRAM
 
 // // #define TEST_MOTORS // use when you want to run motors (hardcoded program)
-#define SERIAL      // use when you want to run maze solving program (communicate with Raspberry Pi)
 
 MotorPins left{ml_en, ml_in_1, ml_in_2, ml_outa, ml_outb};
 MotorPins right{mr_en, mr_in_1, mr_in_2, mr_outa, mr_outb};
@@ -76,7 +75,7 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(ml_outa), encoderISR_left, CHANGE);  // Trigger on both rising and falling edges
   pinMode(LED_BUILTIN, OUTPUT);
   //faster baud rate :115200 
-  Serial.begin(115200);
+  Serial.begin(9600);
   // delay(5000);
 }
 void loop()
@@ -84,6 +83,8 @@ void loop()
  
   // put your main code here, to run repeatedly:
 #ifdef PROGRAM
+digitalWrite(LED_BUILTIN, LOW);
+
   if (Serial.available()) {
     command = Serial.read();  // Read single byte
     if (command!=lastcommand) {
@@ -126,7 +127,9 @@ void loop()
               }
               ul = controller_left.compute(setpoint,encoderPosLeft);
               ur = controller_right.compute(setpoint,encoderPosRight);
-              pwr_r =  std::min(static_cast<int>(abs(ur)), 150);
+
+              //! messed with these power caps. different from straight test. tese dont work either
+              pwr_r =  std::min(static_cast<int>(abs(ur)), 255);
               pwr_l =  std::min(static_cast<int>(abs(ul)), 255);
               analogWrite(mr_en, pwr_r);
           
@@ -138,13 +141,10 @@ void loop()
               digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
               digitalWrite(ml_in_2, dir_left == 1); //
               
-              // if (((encoderPosLeft - setpoint > 10) || (encoderPosRight - setpoint > 0))) {
-              //   // Serial.print("Setpoint reached! Moving to setpoint index:");
-              //   // Serial.println(setpointIndex);
-              //   encoderPosLeft = 0; // Reset encoder positions
-              //   encoderPosRight = 0;      
-              //   setpoint = 0;    
-              // }
+              if (((encoderPosLeft - setpoint > 10) || (encoderPosRight - setpoint > 0))) {
+                //!Tried && instead of ||. Setpoint never reached, just goes to next command
+                digitalWrite(LED_BUILTIN, HIGH);
+              }
         
             break;
         case 2:
@@ -374,9 +374,8 @@ void loop()
     digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
     digitalWrite(ml_in_2, LOW); //
   }
-  #endif
-    delay(10);
-  
+  #endif  
+  delay(100);
 }
 void encoderISR_right() {
 
@@ -418,37 +417,4 @@ void encoderISR_left() {
   //   String command = Serial.readStringUntil('\n');
   //   int dir_left, pwm_left, dir_right, pwm_right;
   //   sscanf(command.c_str(), "%d,%d,%d,%d", &dir_left, &pwm_left, &dir_right, &pwm_right);
-  //   if(dir_left ==0){
-  //     analogWrite(ml_en, 0);
-  //     digitalWrite(ml_in_1, 0); 
-  //     digitalWrite(ml_in_2, 0);
-  //   } 
-  //   if(dir_right == 0){
-  //     analogWrite(mr_en, 0);
-  //     digitalWrite(mr_in_1, 0); 
-  //     digitalWrite(mr_in_2, 0);  
-  //   }
-  //   if(dir_left !=0 && dir_right != 0){
-
-  //     //! left motor
-  //     //! in1 LOW, in2 HIGH--> Forward
-  //     //! in1 HIGH, in2 LOW-->Backwards
-  //     analogWrite(ml_en, pwm_left);
-  //     digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
-  //     digitalWrite(ml_in_2, dir_left == 1); // 
-  //     // analogWrite(ml_en, 100);
-  //     // digitalWrite(ml_in_1, LOW);
-  //     // digitalWrite(ml_in_2, HIGH);
-  //     //! RIGHT motor
-  //     //! in1 HIGH, in2 LOW--> Forward
-  //     //! in1 LOW, in2 HIGH-->Backwards
-  //     analogWrite(mr_en, pwm_right);
-  //     digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
-  //     digitalWrite(mr_in_2, dir_right == -1); // 
-  //     // analogWrite(mr_en, 100);
-  //     // digitalWrite(mr_in_1, HIGH);
-  //     // digitalWrite(mr_in_2, LOW);
-  //   }
-  // }
-
 
