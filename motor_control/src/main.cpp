@@ -4,30 +4,12 @@
 #include <PIDController.h>
 #include <algorithm>
 
-// #define STRAIGHT
+#define STRAIGHT
 // #define TURN_LEFT
 // #define TURN_RIGHT
 // #define TURN_AROUND
 
-#define ALL_TURNS
-
-// const byte ledPin = 13;
-// const byte interruptPin = 2;
-// volatile byte state = LOW;
-
-// void setup() {
-//   pinMode(ledPin, OUTPUT);
-//   pinMode(interruptPin, INPUT_PULLUP);
-//   attachInterrupt(digitalPinToInterrupt(interruptPin), blink, CHANGE);
-// }
-
-// void loop() {
-//   digitalWrite(ledPin, state);
-// }
-
-// void blink() {
-//   state = !state;
-// }
+// #define PROGRAM
 
 // // #define TEST_MOTORS // use when you want to run motors (hardcoded program)
 #define SERIAL      // use when you want to run maze solving program (communicate with Raspberry Pi)
@@ -59,9 +41,19 @@ int setpoint = 315;
 int setpointIndex = 0;
 int numSetpoints = 2;
 
-int turncount_left = 0;
-int turncount_right = 0;
-int turncount_around = 0;
+//!static variables only available in this file... change to non static if passing thru functions
+static int turncount_left = 0;
+static int turncount_right = 0;
+static int turncount_around = 0;
+
+static uint8_t lastcommand = 0;
+static uint8_t command = 0;
+
+int pwr_r = 0;
+int pwr_l = 0;
+
+int dir_right = 1;
+int dir_left = 1;
 
 
 void setup()
@@ -85,16 +77,165 @@ void setup()
   pinMode(LED_BUILTIN, OUTPUT);
   //faster baud rate :115200 
   Serial.begin(115200);
-  delay(5000);
+  // delay(5000);
 }
 void loop()
 {
-  int dir_right = 1;
-  int dir_left = 1;
+ 
   // put your main code here, to run repeatedly:
-#ifdef STRAIGHT
-  
+#ifdef PROGRAM
+  if (Serial.available()) {
+    command = Serial.read();  // Read single byte
+    if (command!=lastcommand) {
+      turncount_right = 0;
+      turncount_left = 0;
+      turncount_around = 0;
+    } 
+    switch (command) {
+        case 0:
+            // stop
+            digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+            digitalWrite(mr_in_2, LOW); //
+        
+            digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+            digitalWrite(ml_in_2, LOW); //
+            break;
+        case 1:
+            // straight
 
+              if (encoderPosLeft != 0 && encoderPosRight != 0){
+        
+                // left: .13,.00425, .001
+                // right: .1, .002, .001
+          
+                //for 750:
+                //left: 0.15,0.01,0.001
+                //right: 0.15, 0.0040, 0.001
+          
+          
+                //for 500:
+                // left: 0.275,0.01,0.001
+                // right: 0.23, 0.0040, 0.001)
+          
+                controller_left.setTunings(0.540,0.01,0.001);
+                controller_right.setTunings(0.43, 0.0040, 0.001);
+              } 
+              else{
+                controller_left.setTunings(.35,0.0,0.0);
+                controller_right.setTunings(.52, 0.0, 0.0);
+              }
+              ul = controller_left.compute(setpoint,encoderPosLeft);
+              ur = controller_right.compute(setpoint,encoderPosRight);
+              pwr_r =  std::min(static_cast<int>(abs(ur)), 150);
+              pwr_l =  std::min(static_cast<int>(abs(ul)), 255);
+              analogWrite(mr_en, pwr_r);
+          
+              digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(mr_in_2, dir_right == -1); //
+          
+              analogWrite(ml_en, pwr_l);
+          
+              digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(ml_in_2, dir_left == 1); //
+              
+              // if (((encoderPosLeft - setpoint > 10) || (encoderPosRight - setpoint > 0))) {
+              //   // Serial.print("Setpoint reached! Moving to setpoint index:");
+              //   // Serial.println(setpointIndex);
+              //   encoderPosLeft = 0; // Reset encoder positions
+              //   encoderPosRight = 0;      
+              //   setpoint = 0;    
+              // }
+        
+            break;
+        case 2:
+            // Turn right
+            if(turncount_right < 10){
+              analogWrite(mr_en, 255);
+          
+              digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(mr_in_2, dir_right == -1); //
+              analogWrite(ml_en, 210);
+          
+              digitalWrite(ml_in_1, dir_left == 1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(ml_in_2, dir_left == -1); // 
+              turncount_right++;
+            }
+            else{
+              digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(mr_in_2, LOW); //
+          
+              digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(ml_in_2, LOW); //
+              // turncount_right = 0;
+            }
+            break;
+        case 3:
+            // Turn left
+            if(turncount_left < 10){
+              analogWrite(mr_en, 195);
+          
+              digitalWrite(mr_in_1, dir_right == -1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(mr_in_2, dir_right == 1); //
+          
+              analogWrite(ml_en, 255);
+          
+              digitalWrite(ml_in_1, dir_left == -1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(ml_in_2, dir_left == 1); // 
+              turncount_left++;
+            }
+            else{
+              digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(mr_in_2, LOW); //
+          
+              digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(ml_in_2, LOW); //
+            }
+            break;
+        case 4:
+            //turn around
+            if(turncount_around < 15){
+              analogWrite(mr_en, 255);
+          
+              digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(mr_in_2, dir_right == -1); //
+          
+              analogWrite(ml_en, 255);
+          
+              digitalWrite(ml_in_1, dir_left == 1); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(ml_in_2, dir_left == -1); // 
+              turncount_around++;
+            }
+            else{
+              digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(mr_in_2, LOW); //
+          
+              digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+              digitalWrite(ml_in_2, LOW); //
+            }
+            break;
+          
+        default:
+            // stop
+            digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+            digitalWrite(mr_in_2, LOW); //
+        
+            digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+            digitalWrite(ml_in_2, LOW); //
+            break;
+    }
+    lastcommand = command; // Store last received command
+
+  }
+  else{
+    // stop
+    digitalWrite(mr_in_1, LOW); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(mr_in_2, LOW); //
+
+    digitalWrite(ml_in_1, LOW); //when dir_left == -1, TRUE = HIGH, else FALSE = LOW
+    digitalWrite(ml_in_2, LOW); //
+  }
+#endif
+#ifdef STRAIGHT
     if (encoderPosLeft != 0 && encoderPosRight != 0){
       
       // left: .13,.00425, .001
