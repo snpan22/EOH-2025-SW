@@ -1,4 +1,6 @@
 #pragma once
+#include <Arduino.h>
+
 
 struct MotorPins{
     int en;
@@ -29,5 +31,10 @@ constexpr int ml_en = 3;
 //left motor output (encoder)
 constexpr int ml_outa = 5;
 constexpr int ml_outb = 6;
+
+constexpr uint8_t IR_RECEIVE_1 = A14;
+constexpr uint8_t IR_RECEIVE_2 = A15;
+constexpr uint8_t IR_RECEIVE_3 = A6;
+constexpr uint8_t IR_RECEIVE_4 = A7;
 
 

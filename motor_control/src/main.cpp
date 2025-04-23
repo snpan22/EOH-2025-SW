@@ -8,11 +8,11 @@
 // #define TURN_LEFT
 // #define TURN_RIGHT
 // #define TURN_AROUND
-
+// #define TEST_IR
 #define PROGRAM
 
 // # define TEST_IR
-uint8_t IR_1 = 33;
+// uint8_t IR_1 = 33;
 // // #define TEST_MOTORS // use when you want to run motors (hardcoded program)
 
 MotorPins left{ml_en, ml_in_1, ml_in_2, ml_outa, ml_outb};
@@ -74,7 +74,11 @@ void setup()
   pinMode(ml_outa, INPUT);
   pinMode(ml_outb, INPUT);
 
-  pinMode(IR_1, INPUT);
+  pinMode(IR_RECEIVE_1, INPUT);
+  pinMode(IR_RECEIVE_2, INPUT);
+  pinMode(IR_RECEIVE_3, INPUT);
+  pinMode(IR_RECEIVE_4, INPUT);
+
   attachInterrupt(digitalPinToInterrupt(mr_outa), encoderISR_right, CHANGE);  // Trigger on both rising and falling edges
   attachInterrupt(digitalPinToInterrupt(ml_outa), encoderISR_left, CHANGE);  // Trigger on both rising and falling edges
   pinMode(LED_BUILTIN, OUTPUT);
@@ -91,8 +95,18 @@ void setup()
 void loop()
 {
   #ifdef TEST_IR
-  int ir1_value = analogRead(IR_1);
-  Serial.println(ir1_value);
+  int ir1_value = analogRead(IR_RECEIVE_1);
+  int ir2_value = analogRead(IR_RECEIVE_2);
+  int ir3_value = analogRead(IR_RECEIVE_3);
+  int ir4_value = analogRead(IR_RECEIVE_4);
+  Serial.print("IR1: ");
+  Serial.print(ir1_value);
+  Serial.print("| IR2: ");
+  Serial.print(ir2_value);
+  Serial.print("| IR3: ");
+  Serial.print(ir3_value);
+  Serial.print("| IR4: ");
+  Serial.println(ir4_value);
  #endif
   // put your main code here, to run repeatedly:
 #ifdef PROGRAM
