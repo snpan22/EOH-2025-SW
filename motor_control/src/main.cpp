@@ -23,12 +23,16 @@ volatile int encoderPosRight = 0;  // Track the encoder position
 volatile int encoderPosLeft = 0;  // Track the encoder position
 void encoderISR_right();
 void encoderISR_left();
+int* readIRValues();
 
 float kpl = 0.1;
 float kil = 0.;
 float kdl = 0.0;
 float ul = 0.;
 
+bool front_wall = 0;
+bool left_wall = 0;
+bool right_wall = 0;
 PIDController controller_left(kpl,kil,kdl);
 
 float kpr = 0.1;
@@ -111,6 +115,28 @@ void loop()
   // put your main code here, to run repeatedly:
 #ifdef PROGRAM
 // digitalWrite(LED_BUILTIN, LOW);
+/*
+ *IR1: 332| IR2: 80| IR3: 64| IR4: 210 : wall to left and right 
+ *
+ * 
+*/
+
+//IR4 wall detection threshold:if IR4>100
+//IR1 wall detection threshold:if IR1>150
+//
+
+  int* ir = readIRValues();
+  Serial.print("IR1: ");
+  Serial.print(ir[0]);
+  Serial.print("| IR2: ");
+  Serial.print(ir[1]);
+  Serial.print("| IR3: ");
+  Serial.print(ir[2]);
+  Serial.print("| IR4: ");
+  Serial.println(ir[0]);
+  // left_wall = ir4_value>=
+
+
   turncount_right = 0;
   turncount_left = 0;
   turncount_around = 0;
@@ -151,15 +177,18 @@ void loop()
             break;
         case 1:
             // straight
-            Serial.print("previouserror left: ");
-            Serial.println(controller_left.get_previousError());
-            Serial.print("previouserror right: ");
-            Serial.println(controller_right.get_previousError());
-            Serial.print("integral left: ");
-            Serial.println(controller_left.get_integral());
-            Serial.print("integral right: ");
-            Serial.println(controller_right.get_integral());
-            while(((encoderPosLeft - setpoint < 10) && (encoderPosRight - setpoint < 0))){
+            // Serial.print("previouserror left: ");
+            // Serial.println(controller_left.get_previousError());
+            // Serial.print("previouserror right: ");
+            // Serial.println(controller_right.get_previousError());
+            // Serial.print("integral left: ");
+            // Serial.println(controller_left.get_integral());
+            // Serial.print("integral right: ");
+            // Serial.println(controller_right.get_integral());
+            while(((encoderPosLeft - setpoint < 0) && (encoderPosRight - setpoint < 0))){
+              ir = readIRValues(); 
+              // if(ir[3]>210):
+              
               Serial.println("entered going straight while loop");
               Serial.print("encoderpos left: ");
               Serial.print(encoderPosLeft);
@@ -181,10 +210,12 @@ void loop()
                 // right: 0.23, 0.0040, 0.001)
           
                 // controller_left.setTunings(0.625,0.205,0.0025);
-                controller_left.setTunings(0.500,0.205,0.0025);
-                // controller_right.setTunings(0.475, 0.0060, 0.001);
+                controller_left.setTunings(0.670,0.,0.);
+                // controller_left.setTunings(0.500,0.,0.);
 
-                controller_right.setTunings(0.500, 0.205, 0.0001);
+                // controller_right.setTunings(0.475, 0., 0.001);
+
+                controller_right.setTunings(0.530, 0., 0.);
               } 
               else{
                 controller_left.setTunings(.5,0.0,0.0);
@@ -209,8 +240,8 @@ void loop()
               // ul = 130;
               // ur = 100;
               
-              ul = controller_left.compute(setpoint,encoderPosLeft);
-              ur = controller_right.compute(setpoint,encoderPosRight);
+              ul = controller_left.compute(setpoint,encoderPosLeft) +0.1*(ir[3]-210);
+              ur = controller_right.compute(setpoint,encoderPosRight)- 0.1*(ir[3]-210);
 
               Serial.print("| ul: ");
               Serial.print(ul);
@@ -226,10 +257,10 @@ void loop()
               pwr_r =  std::min(static_cast<int>(abs(ur)), 200);
               pwr_l =  std::min(static_cast<int>(abs(ul)), 200);
 
-              Serial.print("| pwr_l: ");
-              Serial.print(pwr_l);
-              Serial.print("| pwr_r: ");
-              Serial.println(pwr_r);
+              // Serial.print("| pwr_l: ");
+              // Serial.print(pwr_l);
+              // Serial.print("| pwr_r: ");
+              // Serial.println(pwr_r);
               analogWrite(mr_en, pwr_r);
           
               digitalWrite(mr_in_1, dir_right == 1); //when dir_left == 1, TRUE = HIGH, else FALSE = LOW
@@ -521,6 +552,15 @@ void encoderISR_left() {
   } else {
       encoderPosLeft++;
   }
+}
+
+int* readIRValues() {
+  static int ir_values[4];  // Static so it persists after the function ends
+  ir_values[0] = analogRead(IR_RECEIVE_1);
+  ir_values[1] = analogRead(IR_RECEIVE_2);
+  ir_values[2] = analogRead(IR_RECEIVE_3);
+  ir_values[3] = analogRead(IR_RECEIVE_4);
+  return ir_values;
 }
 
 
